@@ -141,7 +141,7 @@ TEST = [
     dict(id="t23", question="What counts as a 'large team gathering' that needs the event request process instead of an approval email?",
          answerable=True, category="single_fact", stakes="medium",
          reference="Over 6 employees traveling for an internal management meeting and/or more than $10,000 in estimated group travel expenses.",
-         key_facts=[["6"], ["10,000", "10000", "$10k"]],
+         key_facts=[["6", "six"], ["10,000", "10000", "$10k"]],
          evidence=["over 6 employees traveling for an internal management meeting"], source="travel-guide-faq.md"),
 
     # ---------------------------------------------------- unanswerable ----

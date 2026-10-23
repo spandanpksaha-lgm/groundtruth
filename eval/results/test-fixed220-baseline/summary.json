@@ -1,0 +1,59 @@
+{
+  "config": {
+    "split": "test",
+    "chunker": "fixed",
+    "chunk_size": 220,
+    "embedder": "st",
+    "st_model": "sentence-transformers/all-MiniLM-L6-v2",
+    "llm_provider": "openai",
+    "llm_model": "openai/gpt-oss-120b",
+    "top_k": 5,
+    "refusal_threshold": 0.389,
+    "judge": false
+  },
+  "n_questions": 30,
+  "n_answerable": 23,
+  "n_unanswerable": 7,
+  "answer_correctness": 0.957,
+  "citation_faithfulness": 0.913,
+  "sentence_support_rate": 0.978,
+  "refusal_accuracy": 1.0,
+  "false_refusal_rate": 0.0,
+  "retrieval_hit@5": 0.913,
+  "retrieval_hit@1": 0.696,
+  "mrr": 0.797,
+  "outcomes": {
+    "correct": 21,
+    "correct_bad_citation": 1,
+    "retrieval_miss": 1,
+    "correct_refusal": 7
+  },
+  "by_category": {
+    "confusable": {
+      "n": 2,
+      "fully_correct": 1.0
+    },
+    "multi_hop": {
+      "n": 3,
+      "fully_correct": 1.0
+    },
+    "reasoning": {
+      "n": 2,
+      "fully_correct": 1.0
+    },
+    "single_fact": {
+      "n": 16,
+      "fully_correct": 0.875
+    },
+    "unanswerable_out_of_scope": {
+      "n": 2,
+      "fully_correct": 1.0
+    },
+    "unanswerable_tempting": {
+      "n": 5,
+      "fully_correct": 1.0
+    }
+  },
+  "harm_weighted_error": 0.032,
+  "avg_latency_s": 9.68
+}

@@ -98,6 +98,15 @@ def parse_citations(text: str, k: int) -> list[int]:
     return seen
 
 
+
+def normalize_citations(text: str) -> str:
+    """Models cite in different styles: 【1】, [1†L3-L5], [Passage 1], [Source 2].
+    Rewrite them all to [n] so the citation gate and the UI treat them the same."""
+    text = re.sub(r"【\s*(\d+)[^】]*】", r"[\1]", text)
+    text = re.sub(r"\[(\d+)†[^\]]*\]", r"[\1]", text)
+    text = re.sub(r"\[(?:passage|source|doc(?:ument)?)\s*#?(\d+)[^\]]*\]", r"[\1]", text, flags=re.I)
+    return text
+
 def is_refusal(text: str) -> bool:
     return bool(_IDK_RE.match(text.strip()))
 
@@ -193,6 +202,7 @@ class GroundTruth:
         user = f"Passages:\n\n{format_passages(hits)}\n\nQuestion: {question}"
         try:
             raw = self.llm.complete(SYSTEM_PROMPT, user)
+            raw = normalize_citations(raw)
         except LLMError as e:
             return done(f"{IDK} (The language model could not be reached: {e})", True,
                         "llm_error", str(e))

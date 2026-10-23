@@ -8,6 +8,7 @@
 """
 from __future__ import annotations
 
+import re
 import time
 
 import requests
@@ -29,12 +30,15 @@ class BaseLLM:
         raise NotImplementedError
 
 
-def _post_with_retry(url, headers, payload, timeout, tries=3):
+def _post_with_retry(url, headers, payload, timeout, tries=8):
+    """Retry network errors and rate limits (HTTP 429), waiting as long as the
+    provider asks. Free tiers like Groq's cap tokens per minute."""
     last = None
     for attempt in range(tries):
+        wait = min(60, 2 ** attempt)
         try:
             r = requests.post(url, headers=headers, json=payload, timeout=timeout)
-        except requests.RequestException as e:  # network blip
+        except requests.RequestException as e:
             last = e
         else:
             if r.status_code < 400:
@@ -42,7 +46,10 @@ def _post_with_retry(url, headers, payload, timeout, tries=3):
             last = LLMError(f"HTTP {r.status_code}: {r.text[:300]}")
             if r.status_code not in (408, 429, 500, 502, 503, 504):
                 break
-        time.sleep(2 ** attempt)
+            m = re.search(r"try again in ([\d.]+)(ms|s)", r.text)
+            if m:
+                wait = float(m.group(1)) / (1000 if m.group(2) == "ms" else 1) + 1
+        time.sleep(wait)
     raise LLMError(str(last))
 
 
