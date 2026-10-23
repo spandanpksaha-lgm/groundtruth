@@ -1,7 +1,8 @@
-numpy>=1.26
+numpy>=1.26,<2
 scikit-learn>=1.4
 faiss-cpu>=1.8
-sentence-transformers>=3.0
+sentence-transformers==3.3.1
+transformers==4.46.3
 requests>=2.31
 gradio>=5.0
 pymupdf>=1.24

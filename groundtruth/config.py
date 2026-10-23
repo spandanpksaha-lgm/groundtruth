@@ -3,6 +3,7 @@ variable or a line in a `.env` file at the repo root (KEY=value)."""
 from __future__ import annotations
 
 import os
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -18,6 +19,7 @@ def _load_dotenv(path: Path) -> None:
         if not line or line.startswith("#") or "=" not in line:
             continue
         key, _, value = line.partition("=")
+        value = re.split(r"\s+#", value, maxsplit=1)[0]  # drop inline comments
         os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
 
 
