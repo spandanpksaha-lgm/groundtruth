@@ -1,0 +1,62 @@
+{
+  "config": {
+    "split": "test",
+    "chunker": "section",
+    "chunk_size": 220,
+    "embedder": "tfidf",
+    "st_model": null,
+    "llm_provider": "extractive",
+    "llm_model": "extractive-baseline",
+    "top_k": 5,
+    "refusal_threshold": 0.12,
+    "judge": false
+  },
+  "n_questions": 30,
+  "n_answerable": 23,
+  "n_unanswerable": 7,
+  "answer_correctness": 0.696,
+  "citation_faithfulness": 0.773,
+  "sentence_support_rate": 1.0,
+  "refusal_accuracy": 0.429,
+  "false_refusal_rate": 0.043,
+  "retrieval_hit@5": 0.913,
+  "retrieval_hit@1": 0.652,
+  "mrr": 0.775,
+  "outcomes": {
+    "correct": 14,
+    "wrong_answer": 5,
+    "retrieval_miss": 1,
+    "correct_bad_citation": 2,
+    "false_refusal": 1,
+    "hallucinated": 4,
+    "correct_refusal": 3
+  },
+  "by_category": {
+    "confusable": {
+      "n": 2,
+      "fully_correct": 1.0
+    },
+    "multi_hop": {
+      "n": 3,
+      "fully_correct": 0.333
+    },
+    "reasoning": {
+      "n": 2,
+      "fully_correct": 0.5
+    },
+    "single_fact": {
+      "n": 16,
+      "fully_correct": 0.625
+    },
+    "unanswerable_out_of_scope": {
+      "n": 2,
+      "fully_correct": 0.5
+    },
+    "unanswerable_tempting": {
+      "n": 5,
+      "fully_correct": 0.4
+    }
+  },
+  "harm_weighted_error": 0.333,
+  "avg_latency_s": 0.0
+}

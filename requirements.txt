@@ -1,0 +1,9 @@
+numpy>=1.26
+scikit-learn>=1.4
+faiss-cpu>=1.8
+sentence-transformers>=3.0
+requests>=2.31
+gradio>=5.0
+pymupdf>=1.24
+beautifulsoup4>=4.12
+matplotlib>=3.8

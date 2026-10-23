@@ -1,0 +1,60 @@
+{
+  "config": {
+    "split": "test",
+    "chunker": "fixed",
+    "chunk_size": 220,
+    "embedder": "tfidf",
+    "st_model": null,
+    "llm_provider": "extractive",
+    "llm_model": "extractive-baseline",
+    "top_k": 5,
+    "refusal_threshold": 0.12,
+    "judge": false
+  },
+  "n_questions": 30,
+  "n_answerable": 23,
+  "n_unanswerable": 7,
+  "answer_correctness": 0.739,
+  "citation_faithfulness": 0.857,
+  "sentence_support_rate": 1.0,
+  "refusal_accuracy": 0.429,
+  "false_refusal_rate": 0.087,
+  "retrieval_hit@5": 0.913,
+  "retrieval_hit@1": 0.696,
+  "mrr": 0.79,
+  "outcomes": {
+    "correct": 17,
+    "wrong_answer": 4,
+    "retrieval_miss": 2,
+    "hallucinated": 4,
+    "correct_refusal": 3
+  },
+  "by_category": {
+    "confusable": {
+      "n": 2,
+      "fully_correct": 1.0
+    },
+    "multi_hop": {
+      "n": 3,
+      "fully_correct": 0.667
+    },
+    "reasoning": {
+      "n": 2,
+      "fully_correct": 1.0
+    },
+    "single_fact": {
+      "n": 16,
+      "fully_correct": 0.688
+    },
+    "unanswerable_out_of_scope": {
+      "n": 2,
+      "fully_correct": 1.0
+    },
+    "unanswerable_tempting": {
+      "n": 5,
+      "fully_correct": 0.2
+    }
+  },
+  "harm_weighted_error": 0.302,
+  "avg_latency_s": 0.0
+}
