@@ -60,7 +60,8 @@ class OpenAICompatLLM(BaseLLM):
         data = _post_with_retry(
             f"{self.base_url}/chat/completions",
             {"Authorization": f"Bearer {self.api_key or 'none'}"},
-            {"model": self.model, "temperature": self.temperature, "max_tokens": max_tokens,
+            {"model": self.model, "temperature": self.temperature, "max_tokens": max(max_tokens, 2000),
+             **({"reasoning_effort": "low"} if "gpt-oss" in self.model else {}),
              "messages": [{"role": "system", "content": system},
                           {"role": "user", "content": user}]},
             self.timeout,
