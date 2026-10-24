@@ -3,7 +3,10 @@
     python eval/make_report.py                     # every run in eval/results/
     python eval/make_report.py test-section220-st-openai test-fixed220-st-openai
 
-Writes eval/results/report.md, metrics.png and outcomes.png.
+    python eval/make_report.py --corpus uc         # every uc-test-* run
+
+Writes eval/results/report.md, metrics.png and outcomes.png
+(for uc: report_uc.md, metrics_uc.png, outcomes_uc.png).
 """
 import csv
 import json
@@ -16,6 +19,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
 RES = ROOT / "eval" / "results"
 SURF, INK, MUTED, GRID = "#fcfcfb", "#0b0b0b", "#52514e", "#e4e3df"
 SERIES = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#6250d6"]
@@ -48,6 +52,17 @@ def label(s):
     return f"{c['chunker']} {c['chunk_size']}w · {c['embedder']} · {c['llm_model'] or c['llm_provider']}"
 
 
+def _desc(runs):
+    s = runs[0][1]
+    return (f"{s['n_questions']} {s['config'].get('split', 'test')} questions "
+            f"({s['n_answerable']} answerable, {s['n_unanswerable']} unanswerable)")
+
+
+def _corpus_name(runs):
+    from groundtruth.corpora import corpus_spec
+    return corpus_spec(runs[0][1]["config"].get("corpus", "tts"))["name"]
+
+
 def metrics_chart(runs, path):
     fig, ax = plt.subplots(figsize=(9, 4.2), dpi=200)
     fig.patch.set_facecolor(SURF)
@@ -64,7 +79,7 @@ def metrics_chart(runs, path):
     ax.set_xticks(range(len(METRICS)), [l for _, l in METRICS], fontsize=8, color=INK)
     ax.set_ylim(0, 1.12)
     ax.yaxis.set_major_formatter(matplotlib.ticker.PercentFormatter(1.0))
-    ax.set_title("GroundTruth evaluation — 30 test questions (23 answerable, 7 unanswerable)",
+    ax.set_title(f"{_corpus_name(runs)} — {_desc(runs)}",
                  fontsize=10, color=INK, loc="left")
     if n > 1:
         ax.legend(frameon=False, fontsize=7, loc="upper left", bbox_to_anchor=(0, -0.2), ncol=2)
@@ -98,7 +113,7 @@ def outcomes_chart(runs, path):
     seen = {}
     for h, l in zip(handles, labels):
         seen.setdefault(l, h)
-    ax.set_title("Where each of the 30 test questions landed (failure taxonomy)",
+    ax.set_title(f"{_corpus_name(runs)}: where each question landed (failure taxonomy)",
                  fontsize=10, color=INK, loc="left")
     fig.tight_layout(rect=(0, 0.22, 1, 1))
     fig.legend(seen.values(), seen.keys(), frameon=False, fontsize=7, ncol=4,
@@ -118,34 +133,42 @@ def failures_md(tag):
     return "\n".join(out)
 
 
-def main(tags):
-    if not tags:
-        tags = sorted(p.parent.name for p in RES.glob("*/summary.json")
-                      if p.parent.name.startswith("test"))
+def main(argv):
+    import argparse
+    ap = argparse.ArgumentParser()
+    ap.add_argument("tags", nargs="*")
+    ap.add_argument("--corpus", default="tts", choices=["tts", "uc"])
+    ap.add_argument("--split", default="test", help="which question set's runs to collect")
+    a = ap.parse_args(argv)
+    sfx = ("" if a.corpus == "tts" else f"_{a.corpus}") + ("" if a.split == "test" else f"_{a.split}")
+    prefix = a.split if a.corpus == "tts" else f"{a.corpus}-{a.split}"
+    tags = a.tags or sorted(p.parent.name for p in RES.glob("*/summary.json")
+                            if p.parent.name.startswith(prefix))
     runs = [(t, json.loads((RES / t / "summary.json").read_text())) for t in tags]
     if not runs:
         sys.exit("No runs found. Run eval/run_eval.py first.")
-    metrics_chart(runs, RES / "metrics.png")
-    outcomes_chart(runs, RES / "outcomes.png")
+    metrics_chart(runs, RES / f"metrics{sfx}.png")
+    outcomes_chart(runs, RES / f"outcomes{sfx}.png")
 
     keys = [m for m, _ in METRICS] + ["sentence_support_rate", "mrr", "harm_weighted_error",
                                       "judge_answer_correctness", "judge_faithfulness", "avg_latency_s"]
-    md = ["# GroundTruth evaluation report", "",
-          "Test set: 30 hand-written questions (23 answerable, 7 deliberately unanswerable), "
-          "written before looking at model output. Definitions are in `groundtruth/evaluation.py`.", "",
+    md = [f"# GroundTruth evaluation report — {_corpus_name(runs)}", "",
+          f"Question set: {_desc(runs)}, hand-written before looking at model output. "
+          "Definitions are in `groundtruth/evaluation.py`.", "",
           "| Metric | " + " | ".join(f"`{t}`" for t, _ in runs) + " |",
           "|---|" + "---|" * len(runs)]
     for k in keys:
         if all(s.get(k) is None for _, s in runs):
             continue
         md.append(f"| {k} | " + " | ".join("—" if s.get(k) is None else str(s[k]) for _, s in runs) + " |")
-    md += ["", "![metrics](metrics.png)", "", "![outcomes](outcomes.png)", ""]
-    if (RES / "chunking_comparison.md").exists():
+    md += ["", f"![metrics](metrics{sfx}.png)", "", f"![outcomes](outcomes{sfx}.png)", ""]
+    if (RES / f"chunking_comparison{sfx}.md").exists():
         md += ["## Chunking comparison (retrieval only)", "",
-               (RES / "chunking_comparison.md").read_text(), "![chunking](chunking_comparison.png)", ""]
+               (RES / f"chunking_comparison{sfx}.md").read_text(),
+               f"![chunking](chunking_comparison{sfx}.png)", ""]
     md += ["## Failure log", ""] + [failures_md(t) + "\n" for t, _ in runs]
-    (RES / "report.md").write_text("\n".join(md))
-    print(f"Wrote {RES.relative_to(ROOT)}/report.md, metrics.png, outcomes.png")
+    (RES / f"report{sfx}.md").write_text("\n".join(md))
+    print(f"Wrote {RES.relative_to(ROOT)}/report{sfx}.md, metrics{sfx}.png, outcomes{sfx}.png")
 
 
 if __name__ == "__main__":

@@ -30,8 +30,12 @@ class Chunk:
     page: int | None = None
 
     def citation_label(self) -> str:
-        loc = f"p.{self.page}" if self.page else (self.section or "")
-        return f"{self.title}" + (f" — {loc}" if loc and loc != self.title else "")
+        label = self.title
+        if self.section and self.section != self.title:
+            label += f" — {self.section}"
+        if self.page:
+            label += f" (p.{self.page})"
+        return label
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -164,8 +168,12 @@ def chunk_section(doc: Document, size: int = 220, overlap: int = 40,
         path = " > ".join(s.path) if s.path else doc.title
         heading_line = s.path[-1] if s.path else ""
         if _words(s.body) > size:
+            cursor = s.offset
             for piece in _split_long(s.body, size, overlap):
-                units.append((path, piece, s.offset))
+                found = doc.text.find(piece[:60], cursor)
+                if found >= 0:
+                    cursor = found
+                units.append((path, piece, cursor))
         else:
             text = f"{heading_line}\n{s.body}".strip() if heading_line else s.body
             units.append((path, text, s.offset))
@@ -177,7 +185,9 @@ def chunk_section(doc: Document, size: int = 220, overlap: int = 40,
             p_path, p_text, p_off = packed[-1]
             if (_words(p_text) < min_words or _words(text) < min_words) and \
                _words(p_text) + _words(text) <= size:
-                packed[-1] = (p_path, f"{p_text}\n\n{text}", p_off)
+                # cite the page where most of the text is
+                off2 = off if _words(p_text) < _words(text) else p_off
+                packed[-1] = (p_path, f"{p_text}\n\n{text}", off2)
                 continue
         packed.append((path, text, off))
 

@@ -37,10 +37,14 @@ class SentenceTransformerEmbedder(Embedder):
     Downloads the model from Hugging Face on first use (~90 MB)."""
     name = "st"
 
+    _cache: dict = {}   # one model in memory, shared by every corpus
+
     def __init__(self, model_name: str):
         from sentence_transformers import SentenceTransformer
         self.model_name = model_name
-        self.model = SentenceTransformer(model_name)
+        if model_name not in self._cache:
+            self._cache[model_name] = SentenceTransformer(model_name)
+        self.model = self._cache[model_name]
 
     def embed(self, texts: list[str]) -> np.ndarray:
         vecs = self.model.encode(texts, batch_size=32, show_progress_bar=False,

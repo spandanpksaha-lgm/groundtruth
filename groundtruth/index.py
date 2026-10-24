@@ -43,13 +43,15 @@ class VectorStore:
         chunker = chunker or cfg.chunker
         size = chunk_size or cfg.chunk_size
         docs = load_corpus(cfg.data_dir, cfg.source_base_url)
+        if not docs:
+            raise SystemExit(f"No documents found in {cfg.data_dir} for corpus '{cfg.corpus}'.")
         chunks = chunk_corpus(docs, chunker, size, cfg.chunk_overlap)
         emb = make_embedder(cfg, embedder)
         texts = [c.embed_text for c in chunks]
         emb.fit(texts)
         vecs = emb.embed(texts)
         if verbose:
-            print(f"Indexed {len(docs)} documents -> {len(chunks)} chunks "
+            print(f"[{cfg.corpus}] Indexed {len(docs)} documents -> {len(chunks)} chunks "
                   f"(chunker={chunker}, size={size}, embedder={emb.name}, dim={vecs.shape[1]})")
         return cls(emb, chunks, vecs)
 

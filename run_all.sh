@@ -13,7 +13,9 @@ echo "== 2/5 Calibrate the refusal threshold on the DEV set =="
 python eval/calibrate_threshold.py --write
 
 echo "== 3/5 Stretch goal: chunking x embedder comparison (retrieval only) =="
-python eval/compare_chunking.py --embedders st tfidf
+python eval/compare_chunking.py --embedders st tfidf \
+    --st-models sentence-transformers/all-MiniLM-L6-v2 BAAI/bge-small-en-v1.5
+python eval/plot_latent_space.py
 
 echo "== 4/5 Full evaluation on the TEST set =="
 python eval/run_eval.py --chunker section --judge --tag test-section220-main

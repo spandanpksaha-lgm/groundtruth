@@ -14,7 +14,10 @@ Failure taxonomy (answerable questions)
   false_refusal           evidence was retrieved but the system said "I don't know"
   wrong_answer            evidence retrieved, system answered, but got it wrong
 Unanswerable questions
-  correct_refusal         said "I don't know"
+  correct_refusal         said "I don't know", or answered only with nearby policy
+                          while stating plainly that the asked-for detail is not
+                          in the documents (team scoring rule: "declines to invent
+                          absent information, even if it cites nearby policy")
   hallucinated            answered something the documents don't support
 """
 from __future__ import annotations
@@ -28,13 +31,35 @@ from .rag import Answer, GroundTruth
 
 STAKES_WEIGHT = {"high": 3, "medium": 2, "low": 1}
 
+# Phrases that state the documents lack the requested detail.
+DECLINE_PHRASES = [
+    "i don't know", "i do not know", "not in the documents", "not in the handbook",
+    "doesn't say", "does not say", "doesn't specify", "does not specify", "not specified",
+    "doesn't state", "does not state", "not stated", "doesn't provide", "does not provide",
+    "not provided", "doesn't include", "does not include", "not included in", "don't cover",
+    "doesn't cover", "does not cover", "not covered", "no information", "doesn't mention",
+    "does not mention", "not mentioned", "doesn't list", "does not list", "not listed",
+    "doesn't give", "does not give", "isn't available", "is not available", "cannot determine",
+    "can't determine", "unable to determine", "documents don't", "documents do not",
+]
+
+
+def declines_in_text(answer: str) -> bool:
+    a = _norm(answer)
+    return any(p in a for p in DECLINE_PHRASES)
+
 
 def load_questions(path: Path) -> list[dict]:
     return [json.loads(l) for l in open(path) if l.strip()]
 
 
+_DASHES = str.maketrans({"\u2010": "-", "\u2011": "-", "\u2012": "-", "\u2013": "-", "\u2014": "-",
+                        "\u00a0": " ", "\u202f": " "})
+
+
 def _norm(s: str) -> str:
-    s = s.lower().replace("’", "'").replace("\\", "")
+    # Models often write non-breaking hyphens ("non\u2011transferable") and spaces.
+    s = s.translate(_DASHES).lower().replace("’", "'").replace("\\", "")
     return re.sub(r"\s+", " ", s).strip()
 
 
@@ -107,7 +132,7 @@ def score_one(q: dict, a: Answer, judge=None) -> Row:
         else:
             outcome = "wrong_answer"
     else:
-        outcome = "correct_refusal" if a.refused else "hallucinated"
+        outcome = "correct_refusal" if (a.refused or declines_in_text(a.text)) else "hallucinated"
 
     if judge is not None and not a.refused:
         j_correct = judge.correct(q, a) if q["answerable"] else False
@@ -140,7 +165,7 @@ def summarise(rows: list[Row], k: int) -> dict:
         "answer_correctness": _rate(sum(r.correct for r in ans), len(ans)),
         "citation_faithfulness": _rate(sum(bool(r.cites_evidence) for r in answered), len(answered)),
         "sentence_support_rate": None if not supp else round(sum(supp) / len(supp), 3),
-        "refusal_accuracy": _rate(sum(r.refused for r in una), len(una)),
+        "refusal_accuracy": _rate(sum(r.outcome == "correct_refusal" for r in una), len(una)),
         "false_refusal_rate": _rate(sum(r.refused for r in ans), len(ans)),
         f"retrieval_hit@{k}": _rate(sum(bool(r.retrieval_hit) for r in ans), len(ans)),
         "retrieval_hit@1": _rate(sum(r.evidence_rank == 1 for r in ans), len(ans)),
@@ -179,6 +204,28 @@ def run(gt: GroundTruth, questions: list[dict], k: int, judge=None, verbose=True
             mark = "✓" if row.outcome in ("correct", "correct_refusal") else "✗"
             print(f"  {mark} {q['id']:4} {row.outcome:22} top={row.top_score:.3f}  {q['question'][:60]}")
     return rows, summarise(rows, k)
+
+
+def load_rows(path: Path) -> list[Row]:
+    """Read a saved per_question.csv back into Row objects."""
+    import csv
+    from dataclasses import fields
+
+    def conv(name, typ, v):
+        if v == "" and name not in ("answer", "question", "retrieved", "cited", "category", "stakes", "id",
+                                    "outcome"):
+            return None
+        if "bool" in str(typ):
+            return v == "True"
+        if "float" in str(typ):
+            return float(v)
+        if "int" in str(typ):
+            return int(v)
+        return v
+
+    flds = {f.name: f.type for f in fields(Row)}
+    return [Row(**{k: conv(k, flds[k], v) for k, v in r.items() if k in flds})
+            for r in csv.DictReader(open(path))]
 
 
 def save(rows: list[Row], summary: dict, out_dir: Path, config: dict) -> None:

@@ -1,6 +1,6 @@
-# GroundTruth evaluation report
+# GroundTruth evaluation report — TTS Travel & Leave
 
-Test set: 30 hand-written questions (23 answerable, 7 deliberately unanswerable), written before looking at model output. Definitions are in `groundtruth/evaluation.py`.
+Question set: 30 test questions (23 answerable, 7 unanswerable), hand-written before looking at model output. Definitions are in `groundtruth/evaluation.py`.
 
 | Metric | `test-section220-main` | `test-fixed220-baseline` | `test-section220-nollm` |
 |---|---|---|---|

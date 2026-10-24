@@ -2,10 +2,27 @@
 
 MSAI-630-M40 Residency Hackathon · Project 1
 
-GroundTruth answers questions about the **TTS Handbook "Travel & Leave" policies**
-(GSA's public-domain employee handbook: 23 pages, ~22k words). Every answer cites
-the passages it used, and when the documents don't support an answer it says
-**"I don't know."**
+GroundTruth answers questions over **two separate document sets**, each in its own
+tab of the app. Every answer cites the passages it used (with page numbers for the
+PDF), and when the documents don't support an answer it says **"I don't know."**
+
+| Tab | Document set | Size | Questions |
+|---|---|---|---|
+| **UC Student Handbook** | University of the Cumberlands Student Handbook 2026-2027 (PDF) | 81 pages, ~51k words, 341 chunks | 32 test (7 unanswerable, 2 where the handbook contradicts itself) + 9 dev |
+| **TTS Travel & Leave** | GSA TTS Handbook, Travel & Leave section (public domain) | 23 pages, ~22k words, 178 chunks | 30 test (7 unanswerable) + 9 dev |
+
+The two sets never mix: each has its own index, refusal threshold, test questions
+and results. A question asked in one tab only searches that tab's documents.
+
+**Team benchmark (UC, 40 questions).** The team wrote a harder set before seeing
+any output: multi-step, false premise, calculations, date comparisons, exceptions
+and 8 unanswerable questions (`eval/UC_GroundTruth_40_Question_Benchmark.xlsx`).
+`eval/make_questions_uc_hard.py` converts it, adding exact handbook quotes and
+answer keywords; `eval/fill_benchmark_sheet.py` writes fixed-size vs
+section-based results back into a copy of the sheet with a paired comparison by
+category (`eval/results/UC_benchmark_results.xlsx`). Following the team's rule,
+an unanswerable question is scored correct when the system declines to invent
+the missing detail, even if it cites nearby policy.
 
 **Who it's for:** a federal employee asking at 11 PM, "How much leave can I carry
 over?" or "Will this travel expense get reimbursed?" A confident wrong answer
@@ -24,11 +41,15 @@ python scripts/build_index.py # downloads the embedding model the first time (~9
 python app.py                 # open http://127.0.0.1:7860
 ```
 
-Produce every number for the slides with one command:
+Produce every number for the slides with one command per document set:
 
 ```bash
-bash run_all.sh               # ~5-10 min, writes eval/results/report.md + charts
+bash run_all_uc.sh            # UC Student Handbook  -> eval/results/report_uc.md + *_uc.png
+bash run_all.sh               # TTS Travel & Leave   -> eval/results/report.md + charts
 ```
+
+Every script takes `--corpus uc` or `--corpus tts` (default `tts`), e.g.
+`python eval/run_eval.py --corpus uc`.
 
 **No API key yet?** `LLM_PROVIDER=extractive` runs the whole thing with no model
 (it quotes the best-matching sentences). `GT_EMBEDDER=tfidf` skips the embedding
@@ -75,14 +96,16 @@ flowchart LR
 
 | File | What it does |
 |---|---|
-| `groundtruth/ingest.py` | Loads Markdown/PDF/HTML/TXT; strips templating; keeps headings, title and source URL |
+| `groundtruth/corpora.py` | The two document sets: folders, source links, example questions |
+| `scripts/pdf_to_markdown.py` | Turns a PDF into Markdown using its bookmarks as headings and keeping page markers |
+| `groundtruth/ingest.py` | Loads Markdown/PDF/HTML/TXT; strips templating; keeps headings, title, source URL and page numbers |
 | `groundtruth/chunking.py` | `fixed` (sliding window) and `section` (heading-aware, with section-path prefix) chunkers |
 | `groundtruth/embeddings.py` | sentence-transformers (local), OpenAI-compatible, or TF-IDF |
 | `groundtruth/index.py` | FAISS inner-product index (cosine), saved to `index/` |
 | `groundtruth/llm.py` | One `complete()` interface for OpenAI-compatible, Anthropic, or no-LLM |
 | `groundtruth/rag.py` | The pipeline: retrieve → gate 1 → prompt → gate 2 → support check |
 | `groundtruth/evaluation.py` | Metrics, failure taxonomy, optional LLM judge |
-| `app.py` | Gradio UI: chat on the left, retrieved passages (cited ones highlighted) on the right |
+| `app.py` | Gradio UI: one tab per document set; chat on the left, retrieved passages (cited ones highlighted, page links into the PDF) on the right |
 
 **Why two refusal gates?** Gate 1 is cheap and catches obviously off-topic
 questions ("What's the capital of France?") without spending an LLM call. But the
@@ -139,32 +162,95 @@ python eval/compare_chunking.py --embedders st tfidf   # stretch goal
 python eval/make_report.py                        # report.md + charts
 ```
 
-### Baseline results (no LLM, TF-IDF retrieval)
+### Results: TTS Travel & Leave (Groq `openai/gpt-oss-120b`, MiniLM embeddings)
 
-These came from the offline baseline, run while building the repo. **Replace them
-with your LLM + MiniLM numbers from `run_all.sh`.** They're still worth keeping on a
-slide as the "what does the LLM add?" comparison.
+| | No LLM (quotes best sentences) | LLM + fixed 220w chunks | **LLM + section 220w chunks** |
+|---|---|---|---|
+| Answer correctness | 74% | 96% | **100%** |
+| Citation faithfulness | 74% | 91% | **100%** |
+| Refusal accuracy (7 unanswerable) | 43% | 100% | **100%** |
+| False refusal rate | 0% | 0% | **0%** |
+| Retrieval hit@5 | 100% | 91% | **100%** |
 
-| | Section 220w | Fixed 220w |
-|---|---|---|
-| Answer correctness | 70% | 74% |
-| Citation faithfulness | 77% | 86% |
-| Refusal accuracy (7 unanswerable) | 43% | 43% |
-| False refusal rate | 4% | 9% |
-| Retrieval hit@5 | 91% | 91% |
+A perfect score means this first test set was too easy, which is why the UC
+handbook set adds harder categories (calculations, contradictions in the source).
+Two bugs found on the way, and fixed: Groq rate limits were being counted as
+"I don't know", and gpt-oss cites as `【1】`, which the citation check didn't
+recognize (`groundtruth/rag.py: normalize_citations`).
 
-Retrieval-only chunking comparison (TF-IDF): bigger chunks retrieved better
-(400-word chunks reached 96% hit@5 vs. 83–91% at 120 words). Heading-aware
-chunking did **not** beat fixed windows with a lexical retriever. That's an honest
-finding worth testing with dense embeddings: the section-path prefix is meant to
-help semantic matching, not keyword matching.
+### Results: UC Student Handbook
 
-The baseline's 4 hallucinations on unanswerable questions show why the retrieval
-gate alone isn't enough: "Boston M&IE rate" retrieves real M&IE passages with a
-high score. Refusing those has to come from the model reading the passages, which
-is exactly what the LLM runs measure.
+Run `bash run_all_uc.sh` and paste the table from `eval/results/report_uc.md`
+here. Offline baseline (TF-IDF, no LLM), for reference: 44% correct, 2 of 7 trick
+questions refused, retrieval hit@5 92%.
 
 ---
+
+## Stretch goal and course connection
+
+### Stretch goal: two chunking strategies and two embedding models, with numbers
+
+`eval/compare_chunking.py` scores retrieval on the test questions for every
+combination of:
+
+- **Chunking:** heading-aware `section` chunks (each chunk prefixed with its
+  "Section > Subsection" path) vs `fixed` sliding windows, at 120 / 220 / 400 words
+- **Embeddings:** two dense neural models, **MiniLM** (`all-MiniLM-L6-v2`, 384-d)
+  and **BGE-small** (`bge-small-en-v1.5`, 384-d), plus **TF-IDF** as a keyword
+  baseline with no learned representation
+
+Metrics: hit@1/3/5 and MRR (does the right passage come back, and how high?),
+and AUROC (does the top similarity score separate answerable from unanswerable
+questions?). Results: `eval/results/chunking_comparison_uc.{md,png}` and
+`chunking_comparison.{md,png}`. The end-to-end runs also compare section vs fixed
+chunks with the LLM in the loop.
+
+**End to end, 2×2:** `bash run_grid_uc.sh` runs the team's 40-question UC
+benchmark through all four systems ({section, fixed} chunking × {MiniLM,
+BGE-small}), each with its own index and its own "I don't know" threshold
+calibrated on the dev set (`GT_MIN_SCORE_UC_<CHUNKER>_<MODEL>` in `.env`). The
+"Paired comparison" tab of `eval/results/UC_benchmark_results.xlsx` holds the
+2×2 table of correct answers. In the app, the UC tab's Settings panel switches
+between the four systems, and the **UC 2×2 Lab** tab sends one question to all
+four at once.
+
+TTS finding so far: with MiniLM, section chunks reached 100% hit@5 at every size
+vs 87-91% for fixed windows, while with TF-IDF the section prefix made no
+difference. The section path helps the *semantic* embedding place a chunk, not
+keyword matching.
+
+### Course connection
+
+| Course idea | Where it shows up in GroundTruth | Evidence |
+|---|---|---|
+| **Conditional generation p(x \| context)** | The LLM generates the answer conditioned on the retrieved passages; the prompt forbids using anything else, and an answer with no citation is blocked. Conditioning on *wrong* context is the main failure mode, so retrieval quality is measured separately from generation. | No-LLM vs LLM runs; `retrieval_miss` vs `wrong_answer` in the failure taxonomy |
+| **Generalization vs memorization** | Trick questions have answers the model has probably *memorized* (Boston meals rate, mileage rate, federal holidays, tuition). A correct system answers from the context, not its memory, so it must refuse. The UC handbook is also a generalization test: the system was built and tuned on TTS, then run unchanged on a document it had never seen. Thresholds are set on dev questions, never on test. | Refusal accuracy on unanswerable questions; TTS vs UC results side by side |
+| **Latent space applied to text embeddings** | Every chunk and question is a point in a 384-d embedding space; retrieval is nearest-neighbour search by cosine similarity, and the "I don't know" gate is a distance cut. `eval/plot_latent_space.py` projects the space to 2D and shows how close trick questions land to real passages: too close for a distance cut alone, which is why the LLM must also decline. | `latent_space_uc.png`, `similarity_gap_uc.png`; AUROC column in the comparison |
+
+## The UC Student Handbook
+
+`data/uc/Student_Handbook_2026_2027.pdf` is converted once into
+`data/uc/text/student-handbook.md` by `scripts/pdf_to_markdown.py`:
+
+- The PDF's 199 bookmarks become headings, so each chunk is labeled with its
+  section path (e.g. *Policies and Regulations > Withdrawal from the University*).
+- A page marker at every page start gives each chunk its page number (checked:
+  338 of 341 chunks cite the right PDF page).
+- Pages 30-33 are drug-schedule tables that extract one cell per line; they are
+  skipped as noise, and the app's footer says so.
+- The converted file is committed, so laptops that can't install PyMuPDF still work.
+
+Re-run the conversion only if the PDF changes:
+`python scripts/pdf_to_markdown.py data/uc/Student_Handbook_2026_2027.pdf data/uc/text/student-handbook.md --title "UC Student Handbook 2026-2027"`
+
+**The handbook contradicts itself in places**, and two test questions probe this
+(category `conflicting`): skateboards on sidewalks are *not permitted* on p.58 but
+*required* ("sidewalks only") on p.66, and the alcohol-education course is
+"Alcohol Wise" on p.27 but "AlcoholEdu" on p.48. A good answer reports both
+passages; a confident single answer is graded wrong. Other inconsistencies worth
+knowing for Q&A: towed cars are retrieved via "Parking Control, Office of Public
+Safety" (p.61) or "the UC Travel Services Office" (p.62); the health clinic is
+open 8:00-4:30 (p.65) or closed 12-1 (facilities schedule).
 
 ## Swapping in a different document set
 
@@ -174,6 +260,11 @@ Drop PDFs, Markdown, HTML or TXT into `data/raw/` (subfolders are fine), set
 handbook, so a new corpus needs a new `eval/make_questions.py`.
 
 ## Data and license
+
+`data/uc/` is the University of the Cumberlands Student Handbook 2026-2027,
+provided by the team for this course project. It is the university's
+publication; this repo is public, so make it private after the residency if the
+course requires it.
 
 `data/raw/travel-and-leave/` is the "Travel & Leave" section of the
 [TTS Handbook](https://handbook.tts.gsa.gov/) (repo `GSA-TTS/handbook`,

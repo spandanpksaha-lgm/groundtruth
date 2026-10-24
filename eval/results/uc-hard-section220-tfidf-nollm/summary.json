@@ -1,0 +1,114 @@
+{
+  "config": {
+    "corpus": "uc",
+    "split": "hard",
+    "chunker": "section",
+    "chunk_size": 220,
+    "embedder": "tfidf",
+    "st_model": null,
+    "llm_provider": "extractive",
+    "llm_model": "extractive-baseline",
+    "top_k": 5,
+    "refusal_threshold": 0.12,
+    "judge": false
+  },
+  "n_questions": 40,
+  "n_answerable": 32,
+  "n_unanswerable": 8,
+  "answer_correctness": 0.312,
+  "citation_faithfulness": 0.944,
+  "sentence_support_rate": 1.0,
+  "refusal_accuracy": 0.5,
+  "false_refusal_rate": 0.438,
+  "retrieval_hit@5": 0.906,
+  "retrieval_hit@1": 0.75,
+  "mrr": 0.815,
+  "outcomes": {
+    "false_refusal": 11,
+    "retrieval_miss": 3,
+    "wrong_answer": 8,
+    "correct": 10,
+    "hallucinated": 4,
+    "correct_refusal": 4
+  },
+  "by_category": {
+    "calculation": {
+      "n": 3,
+      "fully_correct": 0.0
+    },
+    "classification": {
+      "n": 1,
+      "fully_correct": 1.0
+    },
+    "comparison": {
+      "n": 2,
+      "fully_correct": 0.5
+    },
+    "condition": {
+      "n": 1,
+      "fully_correct": 0.0
+    },
+    "cross-page": {
+      "n": 1,
+      "fully_correct": 0.0
+    },
+    "cross-section": {
+      "n": 5,
+      "fully_correct": 0.0
+    },
+    "date_comparison": {
+      "n": 2,
+      "fully_correct": 0.0
+    },
+    "date_exception": {
+      "n": 1,
+      "fully_correct": 1.0
+    },
+    "deadline": {
+      "n": 2,
+      "fully_correct": 1.0
+    },
+    "deadline_safety": {
+      "n": 1,
+      "fully_correct": 1.0
+    },
+    "exception": {
+      "n": 2,
+      "fully_correct": 1.0
+    },
+    "false_premise": {
+      "n": 4,
+      "fully_correct": 0.25
+    },
+    "multi-condition": {
+      "n": 1,
+      "fully_correct": 0.0
+    },
+    "multi-step": {
+      "n": 1,
+      "fully_correct": 0.0
+    },
+    "numerical": {
+      "n": 1,
+      "fully_correct": 0.0
+    },
+    "policy_exception": {
+      "n": 1,
+      "fully_correct": 1.0
+    },
+    "threshold": {
+      "n": 2,
+      "fully_correct": 0.0
+    },
+    "time_exception": {
+      "n": 1,
+      "fully_correct": 0.0
+    },
+    "unanswerable_team": {
+      "n": 8,
+      "fully_correct": 0.5
+    }
+  },
+  "harm_weighted_error": 0.658,
+  "avg_latency_s": 0.0
+}

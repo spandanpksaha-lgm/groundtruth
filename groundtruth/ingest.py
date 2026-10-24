@@ -32,6 +32,30 @@ _HTML_TAG = re.compile(r"<[^>]+>")
 _MULTI_BLANK = re.compile(r"\n{3,}")
 
 
+def _front_matter_field(fm: str, key: str) -> str | None:
+    m = re.search(rf"^{key}:\s*(.+)$", fm, re.M)
+    return m.group(1).strip().strip('"').strip("'") if m else None
+
+
+_PAGE_MARK = re.compile(r"<!--\s*page\s+(\d+)\s*-->")
+_PAGE_SENTINEL = re.compile(r"@@PAGE(\d+)@@ ?")
+
+
+def _extract_pages(text: str) -> tuple[str, list[tuple[int, int]] | None]:
+    """Remove page sentinels, returning clean text + (char_offset, page) list."""
+    if "@@PAGE" not in text:
+        return text, None
+    out, starts, last = [], [], 0
+    pos = 0
+    for m in _PAGE_SENTINEL.finditer(text):
+        out.append(text[last:m.start()])
+        pos += m.start() - last
+        starts.append((pos, int(m.group(1))))
+        last = m.end()
+    out.append(text[last:])
+    return "".join(out), starts
+
+
 def _front_matter_title(fm: str) -> str | None:
     m = re.search(r"^title:\s*(.+)$", fm, re.M)
     if not m:
@@ -134,8 +158,17 @@ def load_corpus(data_dir: Path, base_url: str = "") -> list[Document]:
         rel = path.relative_to(data_dir)
         ext = path.suffix.lower()
         page_starts = None
+        source = None
         if ext in {".md", ".markdown"}:
-            text, title = clean_markdown(path.read_text(encoding="utf-8", errors="ignore"))
+            raw = path.read_text(encoding="utf-8", errors="ignore")
+            fm = _FRONT_MATTER.match(raw)
+            if fm:
+                source = _front_matter_field(fm.group(1), "source")
+            # Page markers left by scripts/pdf_to_markdown.py survive cleaning
+            # as sentinels, then become page offsets for citations.
+            raw = _PAGE_MARK.sub(lambda m: f"@@PAGE{m.group(1)}@@", raw)
+            text, title = clean_markdown(raw)
+            text, page_starts = _extract_pages(text)
         elif ext in {".html", ".htm"}:
             text, title = load_html(path.read_text(encoding="utf-8", errors="ignore"))
         elif ext == ".pdf":
@@ -152,7 +185,7 @@ def load_corpus(data_dir: Path, base_url: str = "") -> list[Document]:
         docs.append(Document(
             doc_id=rel.as_posix(),
             title=title,
-            url=_url_for(rel, base_url) if base_url else rel.as_posix(),
+            url=_url_for(rel, base_url) if base_url else (source or rel.as_posix()),
             text=text,
             page_starts=page_starts,
         ))

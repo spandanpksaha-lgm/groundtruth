@@ -6,3 +6,5 @@ index/
 venv/
 .gradio/
 flagged/
+*.tgz
+.env.bak

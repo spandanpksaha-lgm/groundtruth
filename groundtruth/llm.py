@@ -22,6 +22,12 @@ class LLMError(RuntimeError):
     pass
 
 
+class DailyLimitError(RuntimeError):
+    """The provider's daily quota is used up (e.g. Groq's tokens-per-day cap).
+    Not an LLMError on purpose: retrying won't help for hours, so an evaluation
+    run must stop instead of recording every remaining question as a refusal."""
+
+
 class BaseLLM:
     name = "base"
     model = ""
@@ -46,9 +52,17 @@ def _post_with_retry(url, headers, payload, timeout, tries=8):
             last = LLMError(f"HTTP {r.status_code}: {r.text[:300]}")
             if r.status_code not in (408, 429, 500, 502, 503, 504):
                 break
-            m = re.search(r"try again in ([\d.]+)(ms|s)", r.text)
+            if r.status_code == 429 and re.search(r"per day|\bTPD\b|\bRPD\b", r.text):
+                raise DailyLimitError(
+                    "The LLM provider's DAILY limit for this model is used up "
+                    f"(model {payload.get('model')}). Use a different API key (another teammate's) "
+                    "or wait until it resets.\nProvider said: " + r.text[:300])
+            m = re.search(r"try again in ((?:[\d.]+(?:ms|h|m|s))+)", r.text)
             if m:
-                wait = float(m.group(1)) / (1000 if m.group(2) == "ms" else 1) + 1
+                secs = 0.0
+                for num, unit in re.findall(r"([\d.]+)(ms|h|m|s)", m.group(1)):
+                    secs += float(num) * {"ms": 0.001, "s": 1, "m": 60, "h": 3600}[unit]
+                wait = min(secs + 1, 120)
         time.sleep(wait)
     raise LLMError(str(last))
 

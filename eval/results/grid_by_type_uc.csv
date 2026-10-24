@@ -1,0 +1,14 @@
+group,n,Section + MiniLM,Section + BGE-small,Fixed + MiniLM,Fixed + BGE-small
+All 40 questions,40,0.925,0.875,0.825,0.85
+Stress: should refuse (not in handbook),8,1.0,1.0,1.0,1.0
+Stress: tests fixed chunking,11,1.0,0.909,1.0,1.0
+Stress: tests section chunking,21,0.857,0.81,0.667,0.714
+Type: Cross-section,5,1.0,1.0,0.8,1.0
+Type: False premise,4,0.75,0.5,0.75,0.75
+Type: Calculation,3,0.667,1.0,1.0,1.0
+Type: Comparison,2,1.0,1.0,1.0,1.0
+Type: Date comparison,2,0.5,0.0,0.0,0.0
+Type: Deadline,2,1.0,1.0,1.0,1.0
+Type: Exception,2,1.0,1.0,0.5,0.5
+Type: Threshold,2,1.0,1.0,1.0,1.0
+Type: other (1 question each),10,1.0,0.9,0.8,0.8
